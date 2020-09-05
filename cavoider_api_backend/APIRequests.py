@@ -30,7 +30,13 @@ def get_nyt_current_data():
     endpoint = conf.NYT_CURRENT_COUNTIES_ENDPOINT
     return get_data_from_endpoint(endpoint)
 
+def get_current_county_data():
+    endpoint = conf.CURRENT_COUNTY_POP_ENDPOINT
+    return get_data_from_endpoint(endpoint)
+
 if __name__ == "__main__":
-    df = get_nyt_historical_data()
+    df = get_current_county_data()
+    print(df.head())
+    print(df.tail())
     #with Path("../out/nytHistorical.xlsx").open("wb") as f:
     #    df.to_excel(f)
