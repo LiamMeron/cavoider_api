@@ -10,17 +10,21 @@ df_county_pop = api.get_current_county_data()
 # create master dataframe
 df_master = df_NYT_current.merge(df_county_pop, left_on="fips", right_on="countyFIPS")
 
+
 # Calculate cases per 100000 people
 def create_cases_by_population(df_master):
     df_master["cases/pop"] = (df_master["cases"]/df_master["population"])*100000
+
 
 # Calculate deaths per 100000 people
 def create_deaths_by_population(df_master):
     df_master["deaths/pop"] = (df_master["deaths"]/df_master["population"])*100000
 
+
 # Calculate case fatality per 100000 people
-def create_case_fatality_rate_by_population(df_master):
-    df_master["deaths/cases"] = (df_master["deaths"]/df_master["cases"])*100000
+def create_case_fatality_rate(df_master):
+    df_master["deaths/cases"] = (df_master["deaths"]/df_master["cases"])*100
+
 
 # Calculate 14 day trend
 def create_14_day_trend(df_master):
@@ -54,7 +58,27 @@ def create_14_day_trend(df_master):
     difference = df_week_change - df_prev_week_change
     df_master["percent_increase"] = (difference/df_prev_week_change)*100
 
+# Calculate active cases: number of new cases - new deaths within 30 days
+# (see COVID Tracking Project - The Atlantic for more info)
+def create_active_cases_estimate(df_master):
+    current_date = df_NYT_current.iloc[0, 0]
+    date = datetime.fromisoformat(current_date)
+
+    # estimate active cases as the number of cases
+    prev_30_days = date - timedelta(days=30)
+    day_and_time = prev_30_days.__str__()
+    day_and_time = day_and_time.split(" ")
+    prev_30_days = day_and_time[0]
+    df_30_day_prev = df_NYT_previous[df_NYT_previous["date"] == prev_30_days]
+    df_30_day_prev = df_30_day_prev[["fips", "cases", "deaths"]]
+    df_30_day_prev = df_30_day_prev.rename(columns={"fips": "fips", "cases": "prev_cases", "deaths": "prev_deaths"})
+    df_30_day_change = df_NYT_current.merge(df_30_day_prev, on="fips")
+    pandas.set_option('max_columns', None)
+    df_new_cases = df_30_day_change["cases"] - df_30_day_change["prev_cases"]
+    df_new_deaths = df_30_day_change["deaths"] - df_30_day_change["prev_deaths"]
+    df_master["active_cases"] = df_new_cases - df_new_deaths
+
 
 if __name__ == "__main__":
-    create_14_day_trend(df_master)
+    create_active_cases_estimate(df_master)
     print(df_master.head())
