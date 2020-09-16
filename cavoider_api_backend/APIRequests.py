@@ -1,11 +1,7 @@
 import os
-from pathlib import Path
 import requests
-import csv
 from cavoider_api_backend import conf
 import pandas
-import tempfile
-import io
 from urllib.parse import urlparse
 from datetime import datetime
 from pathlib import Path
