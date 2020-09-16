@@ -1,56 +1,71 @@
-from sqlalchemy import create_engine, MetaData, Table, Column, Integer, String
+import logging
+import uuid
+from dataclasses import dataclass
+from enum import Enum
+from pprint import pprint
+
 from conf import DB_PASS  # , DB_USER, DB_PASSWORD, ,DB_HOST, DB_PORT, DB_DBNAME
 from APIRequests import get_current_county_data
-# conn_str = f"mssql+pyodbc://{conf.db_user}:{conf.db_password}@{conf.db_host}.database.windows.net:{conf.db_port}/{conf.db_dbname}?driver=ODBC+Driver+17+for+SQL+Server"
+
+log = logging.getLogger("repository")
 
 
-# engine = create_engine(f"jdbc:sqlserver://cavoider-dev.database.windows.net:1433;database=reporting;
-# user=dev-admin@cavoider-dev;password={DB_PASS};encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;", echo = True)
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
-
-engine = create_engine(
-    f"mssql+pyodbc://dev-admin@cavoider-dev:{DB_PASS}@cavoider-dev.database.windows.net:1433/reporting?driver=SQL+Server",
-    echo=True
-)
-meta = MetaData()
-base = declarative_base()
+class Partition(Enum):
+    LATEST_COUNTY_REPORT = "latest_county_report"
+    HISTORICAL_COUNTY_REPORTS = "historical_county_reports"
+    COUNTIES = "counties"
 
 
-class Dim_Municipals(base):
-    __tablename__ = 'DIM_Municipals'
-    fips = Column(Integer, primary_key=True)
-    name = Column(String(64))
-    population = Column(Integer)
+class FakeAzureTableRepository:
+    def __init__(self):
+        self.table = {
+            Partition.HISTORICAL_COUNTY_REPORTS: [],
+            Partition.LATEST_COUNTY_REPORT: [],
+            Partition.COUNTIES: [],
+        }
+
+    def add(self, partition: Partition, data: dict):
+        if partition == Partition.HISTORICAL_COUNTY_REPORTS:
+            data["PartitionKey"] = Partition.HISTORICAL_COUNTY_REPORTS.value
+            if is_valid_county_report(data):
+                data["RowKey"] = f"{data['fips']}_{data['report_date']}"
+                self.table[partition].append(data)
+            else:
+                raise ValueError(f"Did not pass county validity: \n{pprint(data)}")
+        elif partition == Partition.LATEST_COUNTY_REPORT:
+            data["PartitionKey"] = partition.LATEST_COUNTY_REPORT.value
+            if is_valid_county_report(data):
+                latest_version_in_table = self.get(
+                    partition.LATEST_COUNTY_REPORT,
+                    data["fips"],
+                    {"report_date": 0, "timestamp": 0},
+                )
+                data["RowKey"] = f"{data['fips']}"
+                if latest_version_in_table["report_date"] < data["report_date"]:
+                    self.table[partition].append(data)
+                elif latest_version_in_table["report_date"] == data["report_date"]:
+                    log.warning(
+                        f"Report already exists in table! Old version timestamp: {latest_version_in_table['timestamp']}"
+                    )
+                else:
+                    log.warning(
+                        f"Upload Failed: Attempting to upload old data to LatestCountyReport: \n{pprint(data)}"
+                    )
+            else:
+                raise ValueError(f"Did not pass county validity: \n{pprint(data)}")
+        elif partition == partition.COUNTIES:
+            raise NotImplemented("Writing to `counties` partition is not supported!")
+
+    def get(self, partition: Partition, rowKey: str, default_val=None):
+        return self.table[partition].get(rowKey, default_val)
 
 
-meta.create_all(engine)
-
-sessionFactory = sessionmaker(engine)
-session = sessionFactory()
-pass
-
-
-def populate_municipalities(session: Session, data):
-    session.bulk_insert_mappings(Dim_Municipals, data)
-    session.commit()
-    session.close()
+def is_valid_county_report(data: dict):
+    try:
+        return data["fips"] is not None and data["report_date"] is not None
+    except IndexError:
+        return False
 
 
 if __name__ == "__main__":
-    df = get_current_county_data()
-    data = df.to_dict()
-    session = sessionFactory()
-
-    new_data = []
-    for i, v in enumerate(data["countyFIPS"]):
-        if data["countyFIPS"][i] != 0:
-            new_data.append(
-                {
-                    "fips": data["countyFIPS"][i],
-                    "name": data["County Name"][i],
-                    "population": data["population"][i]
-                }
-            )
     pass
-    populate_municipalities(session, new_data)
