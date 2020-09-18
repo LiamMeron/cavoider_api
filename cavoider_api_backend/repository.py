@@ -1,3 +1,4 @@
+import abc
 import logging
 import uuid
 from dataclasses import dataclass
@@ -16,7 +17,15 @@ class Partition(Enum):
     COUNTIES = "counties"
 
 
-class FakeAzureTableRepository:
+class AbstractRepository(abc.ABC):
+    def add(self, partition: Partition, data: dict):
+        pass
+
+    def get(self, partition: Partition, row_key: str, default_val=None):
+        pass
+
+
+class FakeAzureTableRepository(AbstractRepository):
     def __init__(self):
         self.table = {
             Partition.HISTORICAL_COUNTY_REPORTS: [],
@@ -36,12 +45,13 @@ class FakeAzureTableRepository:
             data["PartitionKey"] = partition.LATEST_COUNTY_REPORT.value
             if is_valid_county_report(data):
                 latest_version_in_table = self.get(
-                    partition.LATEST_COUNTY_REPORT,
-                    data["fips"],
-                    {"report_date": 0, "timestamp": 0},
+                    partition.LATEST_COUNTY_REPORT, data["fips"]
                 )
                 data["RowKey"] = f"{data['fips']}"
-                if latest_version_in_table["report_date"] < data["report_date"]:
+                if (
+                    not latest_version_in_table
+                    or latest_version_in_table["report_date"] < data["report_date"]
+                ):
                     self.table[partition].append(data)
                 elif latest_version_in_table["report_date"] == data["report_date"]:
                     log.warning(
@@ -56,13 +66,16 @@ class FakeAzureTableRepository:
         elif partition == partition.COUNTIES:
             raise NotImplemented("Writing to `counties` partition is not supported!")
 
-    def get(self, partition: Partition, rowKey: str, default_val=None):
-        return self.table[partition].get(rowKey, default_val)
+    def get(self, partition: Partition, row_key: str, default_val=None):
+        try:
+            return next(r for r in self.table[partition] if r["RowKey"] == row_key)
+        except StopIteration:
+            return default_val
 
 
-def is_valid_county_report(data: dict):
+def is_valid_county_report(data: dict) -> bool:
     try:
-        return data["fips"] is not None and data["report_date"] is not None
+        return data["fips"] and data["report_date"]
     except IndexError:
         return False
 
