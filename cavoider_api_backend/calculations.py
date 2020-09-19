@@ -73,6 +73,7 @@ def create_active_cases_estimate(df_master):
     df_30_day_prev = df_30_day_prev[["fips", "cases", "deaths"]]
     df_30_day_prev = df_30_day_prev.rename(columns={"fips": "fips", "cases": "prev_cases", "deaths": "prev_deaths"})
     df_30_day_change = df_NYT_current.merge(df_30_day_prev, on="fips")
+    pandas.set_option('max_columns', None)
     df_new_cases = df_30_day_change["cases"] - df_30_day_change["prev_cases"]
     df_new_deaths = df_30_day_change["deaths"] - df_30_day_change["prev_deaths"]
     df_master["active_cases"] = df_new_cases - df_new_deaths
