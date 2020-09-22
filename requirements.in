@@ -4,6 +4,5 @@ openpyxl
 environs
 sqlalchemy
 pyodbc
-azure-mgmt-resource
-azure-mgmt-storage
-azure-cli-core
+
+azure-cosmosdb-table
