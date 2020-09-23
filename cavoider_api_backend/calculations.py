@@ -25,6 +25,51 @@ def create_deaths_by_population(df_master):
 def create_case_fatality_rate(df_master):
     df_master["deaths/cases"] = (df_master["deaths"]/df_master["cases"])*100
 
+# Calculate number of new cases per day
+# (uses yesterday and the day before that to find increase due to data reporting times)
+def create_daily_case_count(df_master):
+    current_date = df_NYT_current.iloc[0, 0]
+    date = datetime.fromisoformat(current_date)
+    yesterday = date - timedelta(days=1)
+    day_and_time = yesterday.__str__()
+    day_and_time = day_and_time.split(" ")
+    yesterday = day_and_time[0]
+
+    # calculate difference
+    prev_day = date - timedelta(days=2)
+    day_and_time = prev_day.__str__()
+    day_and_time = day_and_time.split(" ")
+    prev_day = day_and_time[0]
+    df_yesterday = df_NYT_previous[df_NYT_previous["date"] == yesterday]
+    df_yesterday = df_yesterday[["fips", "cases"]]
+    df_prev_day = df_NYT_previous[df_NYT_previous["date"] == prev_day]
+    df_prev_day = df_prev_day[["fips", "cases"]]
+    df_prev_day = df_prev_day.rename(columns={"fips": "fips", "cases":"prev_cases"})
+    df_daily_cases = df_yesterday.merge(df_prev_day, on="fips")
+    df_master["new_daily_cases"] = df_daily_cases["cases"] - df_daily_cases["prev_cases"]
+
+# Calculate number of new deaths per day
+# (uses yesterday and the day before that to find increase due to data reporting times)
+def create_daily_death_count(df_master):
+    current_date = df_NYT_current.iloc[0, 0]
+    date = datetime.fromisoformat(current_date)
+    yesterday = date - timedelta(days=1)
+    day_and_time = yesterday.__str__()
+    day_and_time = day_and_time.split(" ")
+    yesterday = day_and_time[0]
+
+    # calculate difference
+    prev_day = date - timedelta(days=2)
+    day_and_time = prev_day.__str__()
+    day_and_time = day_and_time.split(" ")
+    prev_day = day_and_time[0]
+    df_yesterday = df_NYT_previous[df_NYT_previous["date"] == yesterday]
+    df_yesterday = df_yesterday[["fips", "deaths"]]
+    df_prev_day = df_NYT_previous[df_NYT_previous["date"] == prev_day]
+    df_prev_day = df_prev_day[["fips", "deaths"]]
+    df_prev_day = df_prev_day.rename(columns={"fips": "fips", "deaths":"prev_deaths"})
+    df_daily_deaths = df_yesterday.merge(df_prev_day, on="fips")
+    df_master["new_daily_deaths"] = df_daily_deaths["deaths"] - df_daily_deaths["prev_deaths"]
 
 # Calculate 14 day trend
 def create_14_day_trend(df_master):
@@ -84,4 +129,6 @@ if __name__ == "__main__":
     create_case_fatality_rate(df_master)
     create_14_day_trend(df_master)
     create_active_cases_estimate(df_master)
-    print(df_master.head())
+    create_daily_case_count(df_master)
+    create_daily_death_count(df_master)
+    print(df_master)
