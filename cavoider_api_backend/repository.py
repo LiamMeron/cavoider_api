@@ -129,7 +129,7 @@ class AzureTableRepository(AbstractRepository):
 
 def is_valid_county_report(data: dict) -> bool:
     """Verifies that a given data report contains the minimum necessary fields to create the
-    rowKey and partitionKey fields..."""
+    rowKey and partitionKey fields...."""
     try:
         return data["fips"] and data["report_date"]
     except IndexError:
