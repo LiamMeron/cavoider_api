@@ -4,14 +4,15 @@ from typing import Union
 
 import pytest
 
-import conf
+from cavoider_api_backend import conf
+
 from cavoider_api_backend.repository import (
     FakeAzureTableRepository,
     AbstractRepository,
     Partition as Pt,
     AzureTableRepository,
 )
-from utilities import get_table_connection
+from cavoider_api_backend.utilities import get_table_connection
 
 
 @pytest.fixture()

@@ -5,9 +5,10 @@ from copy import deepcopy
 from enum import Enum
 from pprint import pprint
 
-import conf
-from tests import test_repository
-from utilities import get_table_connection
+from azure.common import AzureMissingResourceHttpError
+
+from . import conf
+from .utilities import get_table_connection
 
 log = logging.getLogger("repository")
 
@@ -23,17 +24,18 @@ class AbstractRepository(abc.ABC):
         if partition == Partition.historical_county_reports:
             data["PartitionKey"] = Partition.historical_county_reports.value
             if is_valid_county_report(data):
-                data["RowKey"] = f"{data['fips']}_{data['report_date']}"
+                data["RowKey"] = f"{int(data['fips'])}_{data['report_date']}"
                 self._add(data)
             else:
                 raise ValueError(f"Did not pass county validity: \n{pprint(data)}")
         elif partition == Partition.latest_county_report:
             data["PartitionKey"] = partition.latest_county_report.value
             if is_valid_county_report(data):
+                data["RowKey"] = f"{int(data['fips'])}"
                 latest_version_in_table = self.get(
-                    partition.latest_county_report, data["fips"]
+                    partition.latest_county_report, data["RowKey"]
                 )
-                data["RowKey"] = f"{data['fips']}"
+
                 if not latest_version_in_table:
                     self._add(data)
 
@@ -119,9 +121,12 @@ class AzureTableRepository(AbstractRepository):
         self.table_svc.merge_entity(self.table_name, data)
 
     def get(self, partition: Partition, row_key: str, default_val=None):
-        return self.table_svc.get_entity(
-            self.table_name, partition_key=partition.value, row_key=row_key
-        )
+        try:
+            return self.table_svc.get_entity(
+                self.table_name, partition_key=partition.value, row_key=row_key
+            )
+        except AzureMissingResourceHttpError:
+            return default_val
 
     def delete(self, partition: Partition, row_key: str):
         return self.table_svc.delete_entity(self.table_name, partition.value, row_key)
