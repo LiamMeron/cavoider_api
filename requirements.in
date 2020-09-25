@@ -3,7 +3,6 @@ pandas
 openpyxl
 environs
 sqlalchemy
-pyodbc
 pytest
 azure-cosmosdb-table
 uvicorn
