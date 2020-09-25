@@ -1,6 +1,5 @@
 import cavoider_api_backend.APIRequests as api
 from datetime import datetime, timedelta
-import pandas
 
 # get dataset
 df_NYT_current = api.get_nyt_current_data()
@@ -124,6 +123,7 @@ def create_active_cases_estimate(df_master):
 
 
 if __name__ == "__main__":
+    #run all methods and save them to a new data set which contains all new calculations
     create_cases_by_population(df_master)
     create_deaths_by_population(df_master)
     create_case_fatality_rate(df_master)
@@ -131,4 +131,5 @@ if __name__ == "__main__":
     create_active_cases_estimate(df_master)
     create_daily_case_count(df_master)
     create_daily_death_count(df_master)
-    print(df_master)
+    df_calculations = df_master
+    print(df_calculations)
