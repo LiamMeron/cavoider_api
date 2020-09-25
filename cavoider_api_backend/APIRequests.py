@@ -8,6 +8,7 @@ from pathlib import Path
 
 CACHE_PATH = Path("../res/cache/")
 
+
 def get_data_from_endpoint(endpoint):
     today = datetime.now().date().isoformat()
     filename = f"{today}_{os.path.basename(urlparse(endpoint).path)}"
@@ -27,24 +28,29 @@ def get_data_from_endpoint(endpoint):
             f.write(response.content)
         return get_data_from_endpoint(endpoint)
 
+
 def get_excess_deaths_from_cdc():
     endpoint = conf.CDC_EXCESS_DEATHS_ENDPOINT
     return get_data_from_endpoint(endpoint)
+
 
 def get_nyt_historical_data():
     endpoint = conf.NYT_HISTORICAL_COUNTIES_ENDPOINT
     return get_data_from_endpoint(endpoint)
 
+
 def get_nyt_current_data():
     endpoint = conf.NYT_CURRENT_COUNTIES_ENDPOINT
     return get_data_from_endpoint(endpoint)
+
 
 def get_current_county_data():
     endpoint = conf.CURRENT_COUNTY_POP_ENDPOINT
     return get_data_from_endpoint(endpoint)
 
+
 if __name__ == "__main__":
-    get_nyt_current_data() #CSV
-    get_excess_deaths_from_cdc() #JSON
-    #with Path("../out/nytHistorical.xlsx").open("wb") as f:
+    get_nyt_current_data()  # CSV
+    get_excess_deaths_from_cdc()  # JSON
+    # with Path("../out/nytHistorical.xlsx").open("wb") as f:
     #    df.to_excel(f)

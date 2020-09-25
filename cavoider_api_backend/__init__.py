@@ -1,5 +1,3 @@
-
-
 # TODO Download data from CDC API
 
 # TODO Download data from NYT Dataset
@@ -13,6 +11,8 @@
 # TODO Calculate Confidence Score Factor
 
 import logging
-logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(name)s.%(funcName)s +%(lineno)s: %(levelname)-8s [%(process)d] %(message)s',
-                    )
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    format="%(asctime)s %(name)s.%(funcName)s +%(lineno)s: %(levelname)-8s [%(process)d] %(message)s",
+)
