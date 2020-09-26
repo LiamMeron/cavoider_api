@@ -79,7 +79,7 @@ target/
 
 # IPython
 profile_default/
-ipython_conf.py
+ipython_config.py
 
 # pyenv
 .python-version
@@ -127,4 +127,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-res/cache/*
+/res/cache/
+/.idea/
