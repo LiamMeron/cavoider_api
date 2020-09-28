@@ -3,7 +3,7 @@ import cavoider_api_backend.APIRequests as api
 from datetime import datetime, timedelta
 from pandas import DataFrame
 import pandas
-
+import numpy
 
 
 #from cavoider_api_backend.repository import Partition, AzureTableRepository
@@ -30,8 +30,11 @@ def create_cases_per_100k_people(current_data: DataFrame, population: DataFrame)
 
 
 # Calculate case fatality per 100000 people
-def create_case_fatality_rate(deaths: DataFrame, cases: DataFrame):
-    return (deaths / cases) * 100
+def create_case_fatality_rate(current_data: DataFrame):
+    case_fatality = current_data["deaths"] / current_data["cases"]
+    fips_and_covid_data = {"fips": current_data["fips"], "case_fatality": case_fatality}
+    df_case_fatality = pandas.DataFrame(fips_and_covid_data)
+    return df_case_fatality
 
 
 # Calculate difference between two different days
@@ -107,6 +110,9 @@ def create_14_day_case_trend(historical_data: DataFrame, current_data: DataFrame
     df_both_weeks["week 1"] = df_both_weeks["14 days"] - df_both_weeks["week 2"]
     df_both_weeks["percent_change_14_days"] = ((df_both_weeks["week 2"] - df_both_weeks["week 1"]) / df_both_weeks["week 1"].abs()) * 100
 
+    # replace the any percent change which is equal to infinity
+    df_both_weeks["percent_change_14_days"] = df_both_weeks["percent_change_14_days"].replace([numpy.inf], "na")
+
     return df_both_weeks[["fips", "percent_change_14_days"]]
 
 
@@ -136,6 +142,7 @@ def main():
     deaths_per_100k_people = create_deaths_per_100k_people(df_NYT_current, df_county_pop)
     daily_case_change = create_daily_case_count(df_NYT_historical, df_NYT_current)
     daily_death_change = create_daily_death_count(df_NYT_historical, df_NYT_current)
+    case_fatality_rate = create_case_fatality_rate(df_NYT_current)
     case_trend_14_days = create_14_day_case_trend(df_NYT_historical, df_NYT_current)
     active_cases_est = create_active_cases_estimate(df_NYT_historical, df_NYT_current)
 
@@ -145,6 +152,7 @@ def main():
     df_master = df_master.merge(deaths_per_100k_people, on="fips")
     df_master = df_master.merge(daily_case_change, on="fips")
     df_master = df_master.merge(daily_death_change, on="fips")
+    df_master = df_master.merge(case_fatality_rate, on="fips")
     df_master = df_master.merge(case_trend_14_days, on="fips")
     df_master = df_master.merge(active_cases_est, on="fips")
 
