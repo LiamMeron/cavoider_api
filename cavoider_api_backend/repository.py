@@ -121,6 +121,9 @@ class AzureTableRepository(AbstractRepository):
         self.table_svc.merge_entity(self.table_name, data)
 
     def get(self, partition: Partition, row_key: str, default_val=None):
+        nycCounties = [36047, 36061, 36081, 36005, 36085]
+        if (row_key) in nycCounties:
+            row_key = 112090
         try:
             return self.table_svc.get_entity(
                 self.table_name, partition_key=partition.value, row_key=row_key

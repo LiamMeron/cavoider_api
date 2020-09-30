@@ -130,12 +130,58 @@ def create_active_cases_estimate(historical_data: DataFrame, current_data: DataF
 
     return df_30_day_change[["fips", "active_cases_est"]]
 
+# Modify a specified row and cell in the data table to account for reporting differences
+def modify_datatable(current_data: DataFrame, column_name: str, fips: int, county_name: str, num_counties: int):
+    selected_row = current_data[current_data["county"] == f"{county_name}"]
+    selected_row_covid_data = int(selected_row[f"{column_name}"] / num_counties)
+    row_to_change_covid_data = int(current_data[current_data["fips"] == fips][f"{column_name}"])
+    new_data = selected_row_covid_data + row_to_change_covid_data
+    current_data.loc[current_data.fips == fips, [f"{column_name}"]] = new_data
+
 
 def main():
     # pull in data
     df_NYT_current = api.get_nyt_current_data()
     df_NYT_historical = api.get_nyt_historical_data()
     df_county_pop = api.get_current_county_data()
+
+    # modify data
+    # replace nyc with a preselected fips code since one is not given
+    df_NYT_current.loc[df_NYT_current.county == "New York City", ["fips"]] = 112090
+
+    # add the joplin data to the other counties
+    # jasper county
+    modify_datatable(df_NYT_current, "cases", 29097, "Joplin", 2)
+    modify_datatable(df_NYT_current, "deaths", 29097, "Joplin", 2)
+    modify_datatable(df_NYT_current, "confirmed_cases", 29097, "Joplin", 2)
+    modify_datatable(df_NYT_current, "confirmed_deaths", 29097, "Joplin", 2)
+    # newton county
+    modify_datatable(df_NYT_current, "cases", 29145, "Joplin", 2)
+    modify_datatable(df_NYT_current, "deaths", 29145, "Joplin", 2)
+    modify_datatable(df_NYT_current, "confirmed_cases", 29145, "Joplin", 2)
+    modify_datatable(df_NYT_current, "confirmed_deaths", 29145, "Joplin", 2)
+
+    # add the kansas city data to the other counties
+    # cass county
+    modify_datatable(df_NYT_current, "cases", 29037, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "deaths", 29037, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_cases", 29037, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_deaths", 29037, "Kansas City", 4)
+    # clay county
+    modify_datatable(df_NYT_current, "cases", 29047, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "deaths", 29047, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_cases", 29047, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_deaths", 29047, "Kansas City", 4)
+    # jackson county
+    modify_datatable(df_NYT_current, "cases", 29095, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "deaths", 29095, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_cases", 29095, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_deaths", 29095, "Kansas City", 4)
+    # platte county
+    modify_datatable(df_NYT_current, "cases", 29165, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "deaths", 29165, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_cases", 29165, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_deaths", 29165, "Kansas City", 4)
 
     # Calculate all the statistics
     cases_per_100k_people = create_cases_per_100k_people(df_NYT_current, df_county_pop)
