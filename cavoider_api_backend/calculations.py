@@ -107,11 +107,22 @@ def create_14_day_case_trend(historical_data: DataFrame, current_data: DataFrame
 
     # calculate the percent increase
     df_both_weeks = df_14_days.merge(df_week_2, on="fips")
+    df_both_weeks = df_both_weeks.dropna(subset=["fips"])
     df_both_weeks["week 1"] = df_both_weeks["14 days"] - df_both_weeks["week 2"]
     df_both_weeks["percent_change_14_days"] = ((df_both_weeks["week 2"] - df_both_weeks["week 1"]) / df_both_weeks["week 1"].abs()) * 100
 
     # replace the any percent change which is equal to infinity
     df_both_weeks["percent_change_14_days"] = df_both_weeks["percent_change_14_days"].replace([numpy.inf], "na")
+
+    # find which counties were first added to the dataset within the last 14 days and set their 14 day value to na
+    all_fips = historical_data.drop_duplicates(subset=["fips"])
+    all_fips = all_fips.dropna(subset=["fips"])
+    missing_counties = all_fips.merge(df_both_weeks, how="left", on="fips", indicator=True)
+    missing_counties = missing_counties[missing_counties["_merge"] == "left_only"]
+    missing_counties = missing_counties.replace(numpy.nan, "na")
+    missing_counties = missing_counties[["fips", "week 1", "week 2", "percent_change_14_days"]]
+    df_both_weeks = df_both_weeks.append(missing_counties)
+
 
     return df_both_weeks[["fips", "percent_change_14_days"]]
 
@@ -123,12 +134,25 @@ def create_active_cases_estimate(historical_data: DataFrame, current_data: DataF
     df_30_day_cases = create_diff_between_columns("cases", historical_data, current_data, 30)
     df_30_day_deaths = create_diff_between_columns("deaths", historical_data, current_data, 30)
     df_30_day_change = df_30_day_cases.merge(df_30_day_deaths, on="fips")
+    df_30_day_change = df_30_day_change.dropna(subset=["fips"])
 
     # calculate active cases
     df_30_day_change["active_cases_est"] = \
         df_30_day_change["new_difference_cases"] - df_30_day_change["new_difference_deaths"]
 
+    # find which counties were first added to the dataset within the last 30 days
+    # and set the value to the number of cases - deaths since all cases and deaths were reported within the last 30 days
+    all_fips = historical_data.drop_duplicates(subset=["fips"])
+    all_fips = all_fips.dropna(subset=["fips"])
+    missing_counties = all_fips.merge(df_30_day_change, how="left", on="fips", indicator=True)
+    missing_counties = missing_counties[missing_counties["_merge"] == "left_only"]
+    missing_counties["active_cases_est"] = missing_counties["cases"] - missing_counties["deaths"]
+    missing_counties = missing_counties.replace(numpy.nan, "na")
+    missing_counties = missing_counties[["fips", "new_difference_cases", "new_difference_deaths", "active_cases_est"]]
+    df_30_day_change = df_30_day_change.append(missing_counties)
+
     return df_30_day_change[["fips", "active_cases_est"]]
+
 
 # Modify a specified row and cell in the data table to account for reporting differences
 def modify_datatable(current_data: DataFrame, column_name: str, fips: int, county_name: str, num_counties: int):
@@ -144,10 +168,18 @@ def main():
     df_NYT_current = api.get_nyt_current_data()
     df_NYT_historical = api.get_nyt_historical_data()
     df_county_pop = api.get_current_county_data()
+    df_county_pop = df_county_pop.rename(columns={"County Name": "county"})
 
     # modify data
-    # replace nyc with a preselected fips code since one is not given
+    # replace NYC with a preselected fips code since one is not given
     df_NYT_current.loc[df_NYT_current.county == "New York City", ["fips"]] = 112090
+    df_NYT_historical.loc[df_NYT_historical.county == "New York City", ["fips"]] = 112090
+    # calculate population for NYC
+    nycCounties = [36047, 36061, 36081, 36005, 36085]
+    nyc_pop_per_county = df_county_pop.loc[df_county_pop["countyFIPS"].isin(nycCounties)][["countyFIPS", "population"]]
+    nyc_pop = nyc_pop_per_county["population"].sum()
+    df_county_pop.loc[df_county_pop.county == "New York City Unallocated", ["countyFIPS"]] = 112090
+    df_county_pop.loc[df_county_pop.county == "New York City Unallocated", ["population"]] = nyc_pop
 
     # add the joplin data to the other counties
     # jasper county
@@ -207,8 +239,10 @@ def main():
     df_master["fips"] = df_master["fips"].astype(int)
 
     # print all columns in data frame
-    pandas.set_option("max_columns", None)
-    print(df_master)
+    #pandas.set_option("max_columns", None)
+    #print(df_master)
+
+    return df_master
 
     #df_to_dict = json.loads(df_master.head(n=200).to_json(orient="table", index=False))[
     #    "data"
