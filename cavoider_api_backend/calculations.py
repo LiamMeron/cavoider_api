@@ -29,7 +29,7 @@ def create_cases_per_100k_people(current_data: DataFrame, population: DataFrame)
                                            population[["countyFIPS", "population"]], "cases")
 
 
-# Calculate case fatality per 100000 people
+# Calculate case fatality
 def create_case_fatality_rate(current_data: DataFrame):
     case_fatality = current_data["deaths"] / current_data["cases"]
     fips_and_covid_data = {"fips": current_data["fips"], "case_fatality": case_fatality}
@@ -64,13 +64,17 @@ def create_daily_dif_between_columns(column_name: str, historical_data: DataFram
 # Calculate number of new cases per day
 # (uses yesterday and the day before that to find increase due to delay reporting times)
 def create_daily_case_count(historical_data: DataFrame, current_data: DataFrame):
-    return create_daily_dif_between_columns("cases", historical_data, current_data)
+    df_daily_cases = create_daily_dif_between_columns("cases", historical_data, current_data)
+    df_daily_cases.loc[df_daily_cases.new_daily_cases < 0, ["new_daily_cases"]] = 0
+    return df_daily_cases[["fips", "new_daily_cases"]]
 
 
 # Calculate number of new deaths per day
 # (uses yesterday and the day before that to find increase due to delay reporting times)
 def create_daily_death_count(historical_data: DataFrame, current_data: DataFrame):
-    return create_daily_dif_between_columns("deaths", historical_data, current_data)
+    df_daily_deaths = create_daily_dif_between_columns("deaths", historical_data, current_data)
+    df_daily_deaths.loc[df_daily_deaths.new_daily_deaths < 0, ["new_daily_deaths"]] = 0
+    return df_daily_deaths[["fips", "new_daily_deaths"]]
 
 
 # Calculate difference between week
@@ -240,9 +244,9 @@ def main():
 
     # print all columns in data frame
     #pandas.set_option("max_columns", None)
-    #print(df_master)
+    print(df_master)
 
-    return df_master
+    #return df_master
 
     #df_to_dict = json.loads(df_master.head(n=200).to_json(orient="table", index=False))[
     #    "data"
