@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DataSourceManagerImpl" format="xml" multifile-model="true">
+    <data-source source="LOCAL" name="Cavoider-Dev-SQL" uuid="5d07d136-e7ec-444c-9f4f-8945dd83a69b">
+      <driver-ref>sqlserver.ms</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>com.microsoft.sqlserver.jdbc.SQLServerDriver</jdbc-driver>
+      <jdbc-url>jdbc:sqlserver://cavoider-dev.database.windows.net:1433;database=reporting;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;</jdbc-url>
+    </data-source>
+    <data-source source="LOCAL" name="Cavoider-Prod-Sql" uuid="b07577dd-3742-48e4-97ec-f0392a2e0865">
+      <driver-ref>sqlserver.ms</driver-ref>
+      <synchronize>true</synchronize>
+      <jdbc-driver>com.microsoft.sqlserver.jdbc.SQLServerDriver</jdbc-driver>
+      <jdbc-url>jdbc:sqlserver://cavoider-prod.database.windows.net:1433;database=cavoider;user=cavoider-prod@cavoider-prod;password=MNNPE&amp;v#v8;encrypt=true;trustServerCertificate=false;hostNameInCertificate=*.database.windows.net;loginTimeout=30;</jdbc-url>
+    </data-source>
+  </component>
+</project>
