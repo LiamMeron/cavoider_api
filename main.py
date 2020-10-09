@@ -5,6 +5,11 @@ app = FastAPI()
 repo = AzureTableRepository("Test01")
 
 
+@app.get("/")
+async def main():
+    return "Hello World!"
+
+
 @app.get("/latest/{fips}")
 async def read_latest_report_for(fips):
     data = repo.get(partition=Partition.latest_county_report, row_key=f"{fips}")
