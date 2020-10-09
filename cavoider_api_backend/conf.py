@@ -19,7 +19,7 @@ CURRENT_COUNTY_POP_ENDPOINT = env.str(
 CURRENT_STATE_ENDPOINT = env.str(
     "CURRENT_STATE_ENDPOINT"
 )  # =>https://covidtracking.com/data/download/all-states-history.csv
-
+AZ_TABLE_CONN_STR = env.str("AZ_TABLE_CONN_STR")
 if __name__ == "__main__":
     print(CDC_EXCESS_DEATHS_ENDPOINT)
     print(NYT_CURRENT_COUNTIES_ENDPOINT)
