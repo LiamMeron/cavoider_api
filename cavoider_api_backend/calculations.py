@@ -133,7 +133,9 @@ def create_14_day_case_trend(historical_data: DataFrame, current_data: DataFrame
     ) * 100
 
     # replace the any percent change which is equal to infinity
-    df_both_weeks["percent_change_14_days"] = df_both_weeks["percent_change_14_days"].replace([numpy.inf], "na")
+    df_both_weeks["percent_change_14_days"] = df_both_weeks[
+        "percent_change_14_days"
+    ].replace([numpy.inf], "na")
 
     return df_both_weeks[["fips", "percent_change_14_days"]]
 
