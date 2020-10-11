@@ -5,5 +5,7 @@ environs
 sqlalchemy
 pytest
 azure-cosmosdb-table
+azure-functions
 uvicorn
 fastapi
+pykml

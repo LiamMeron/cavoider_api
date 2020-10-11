@@ -11,9 +11,15 @@ async def main():
 
 
 @app.get("/latest/{fips}")
-async def read_latest_report_for(fips: int):
+async def read_latest_report_for(fips: str):
     data = repo.get(partition=Partition.latest_county_report, row_key=f"{fips}")
     return data
+
+
+@app.get("/counties/outline/{fips}")
+async def get_county_outline_for(fips: str):
+    data = repo.get(partition=Partition.counties, row_key=fips)
+    return {"fips": data["RowKey"], "outline": data["outline"]}
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 import abc
+import json
 import logging
 import time
 from copy import deepcopy
@@ -6,9 +7,13 @@ from enum import Enum
 from pprint import pprint
 
 from azure.common import AzureMissingResourceHttpError
+from typing import List, Dict
 
-from . import conf
-from .utilities import get_table_connection
+import cavoider_api_backend.conf as conf
+from cavoider_api_backend.utilities import (
+    get_table_connection,
+    get_county_outlines_from_file_on_disk,
+)
 
 log = logging.getLogger("repository")
 
@@ -24,14 +29,14 @@ class AbstractRepository(abc.ABC):
         if partition == Partition.historical_county_reports:
             data["PartitionKey"] = Partition.historical_county_reports.value
             if is_valid_county_report(data):
-                data["RowKey"] = f"{int(data['fips'])}_{data['report_date']}"
+                data["RowKey"] = f"{data['fips']}_{data['report_date']}"
                 self._add(data)
             else:
                 raise ValueError(f"Did not pass county validity: \n{pprint(data)}")
         elif partition == Partition.latest_county_report:
             data["PartitionKey"] = partition.latest_county_report.value
             if is_valid_county_report(data):
-                data["RowKey"] = f"{int(data['fips'])}"
+                data["RowKey"] = f"{data['fips']}"
                 latest_version_in_table = self.get(
                     partition.latest_county_report, data["RowKey"]
                 )
@@ -44,7 +49,7 @@ class AbstractRepository(abc.ABC):
 
                 elif latest_version_in_table["report_date"] == data["report_date"]:
                     log.warning(
-                        f"Report already exists in table! Old version timestamp: {latest_version_in_table['timestamp']}"
+                        f"Report already exists in table! Old version timestamp: {latest_version_in_table['Timestamp']}"
                     )
                 else:
                     log.warning(
@@ -56,6 +61,12 @@ class AbstractRepository(abc.ABC):
             data["PartitionKey"] = partition.counties.value
             data["RowKey"] = data["fips"]
             self._update(data)
+
+    # def batch_insert_update(self, partition: Partition, entities: List[Dict]):
+    #     # TODO create a batch insert function
+    #     raise NotImplementedError
+    #
+    #
 
     def _add(self, data: dict):
         raise NotImplemented
@@ -118,7 +129,7 @@ class AzureTableRepository(AbstractRepository):
         self.table_svc.insert_entity(self.table_name, data)
 
     def _update(self, data: dict):
-        self.table_svc.merge_entity(self.table_name, data)
+        self.table_svc.insert_or_merge_entity(self.table_name, data)
 
     def get(self, partition: Partition, row_key: str, default_val=None):
         try:
@@ -143,5 +154,9 @@ def is_valid_county_report(data: dict) -> bool:
 
 if __name__ == "__main__":
     report = {"fips": "001", "report_date": "2020-09-20", "score": "bad"}
-    repository = AzureTableRepository()
-    repository.add(Partition.historical_county_reports, report)
+    repository = AzureTableRepository("Test01")
+    counties = get_county_outlines_from_file_on_disk()
+    for fips, outline in counties.items():
+        repository.add(
+            Partition.counties, {"fips": fips, "outline": json.dumps(outline)}
+        )
