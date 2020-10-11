@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from cavoider_api_backend.repository import AzureTableRepository, Partition
 
 app = FastAPI()
-repo = AzureTableRepository("Test01")
+repo = AzureTableRepository()
 
 
 @app.get("/")
