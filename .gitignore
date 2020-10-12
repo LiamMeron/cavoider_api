@@ -132,3 +132,5 @@ dmypy.json
 
 .python_packages
 /res/
+/.vscode/
+local.settings.json

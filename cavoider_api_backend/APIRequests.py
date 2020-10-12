@@ -63,6 +63,6 @@ def get_current_state_data():
 
 
 if __name__ == "__main__":
-
+    pass
     # with Path("../out/nytHistorical.xlsx").open("wb") as f:
     #    df.to_excel(f)
