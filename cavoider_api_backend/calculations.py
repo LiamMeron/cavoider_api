@@ -223,7 +223,6 @@ def updateRepoWithPopulation():
     df_to_dict = json.loads(df.to_json(orient="table", index=False))["data"]
     for y in df_to_dict:
         repo.add(Partition.counties, y)
-    breakpoint()
 
 
 if __name__ == "__main__":
