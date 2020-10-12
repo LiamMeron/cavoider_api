@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pandas
 from azure.cosmosdb.table.tableservice import TableService
 from pykml import parser
 
@@ -27,16 +28,13 @@ def extract_county_outlines_from_kml(file: Path):
                 placemark.Polygon.outerBoundaryIs.LinearRing.coordinates
             ).split(" ")
             coordinates = [
-                [
-                    {"latitude": x.split(",")[0], "longitude": x.split(",")[1]}
-                    for x in coordinates
-                ]
+                [{"lat": x.split(",")[0], "lon": x.split(",")[1]} for x in coordinates]
             ]
         except AttributeError:
             polygons = placemark.MultiGeometry.Polygon
             coordinates = [
                 [
-                    {"latitude": x.split(",")[0], "longitude": x.split(",")[1]}
+                    {"lat": x.split(",")[0], "lon": x.split(",")[1]}
                     for x in str(polygon.outerBoundaryIs.LinearRing.coordinates).split(
                         " "
                     )
@@ -52,3 +50,7 @@ def get_county_outlines_from_file_on_disk():
     file = Path("../res/cb_2018_us_county_20m.kml")
     l = extract_county_outlines_from_kml(file)
     return l
+
+
+if __name__ == "__main__":
+    get_county_outlines_from_file_on_disk()

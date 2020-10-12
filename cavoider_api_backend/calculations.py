@@ -214,5 +214,17 @@ def updateRepoWithNewData():
         repo.add(Partition.latest_county_report, record)
 
 
+def updateRepoWithPopulation():
+    repo = AzureTableRepository("Test01")
+    df = api.get_current_county_data()
+    df = df.rename(
+        {"countyFips": "fips", "County Name": "county_name", "State": "state"}
+    )
+    df_to_dict = json.loads(df.to_json(orient="table", index=False))["data"]
+    for y in df_to_dict:
+        repo.add(Partition.counties, y)
+    breakpoint()
+
+
 if __name__ == "__main__":
     updateRepoWithNewData()

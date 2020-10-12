@@ -49,7 +49,7 @@ class AbstractRepository(abc.ABC):
 
                 elif latest_version_in_table["report_date"] == data["report_date"]:
                     log.warning(
-                        f"Report already exists in table! Old version timestamp: {latest_version_in_table['Timestamp']}"
+                        f"Report already exists in table! Old version timestamp: {latest_version_in_table['Timestamp']}.\nNot updating."
                     )
                 else:
                     log.warning(
