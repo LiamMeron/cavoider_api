@@ -5,10 +5,14 @@ from pandas import DataFrame
 import pandas
 import numpy
 
+
 # from cavoider_api_backend.repository import Partition, AzureTableRepository
 
 
 # Calculate covid data per 100000 people
+from repository import AzureTableRepository, Partition
+
+
 def create_covid_data_by_population(
     covid_data: DataFrame, population: DataFrame, column_name: str
 ):
@@ -193,19 +197,34 @@ def main():
     # reformat data frame
     df_master = df_master.rename(columns={"date": "report_date"})
     df_master["fips"] = df_master["fips"].astype(int)
+    df_master["fips"] = df_master["fips"].apply("{0:0>05}".format)
 
     # print all columns in data frame
     pandas.set_option("max_columns", None)
     print(df_master)
+    return df_master
 
-    # df_to_dict = json.loads(df_master.head(n=200).to_json(orient="table", index=False))[
-    #    "data"
-    # ]
 
-    # repo = AzureTableRepository("Test01")
-    # for record in df_to_dict:
-    #    repo.add(Partition.latest_county_report, record)
+def updateRepoWithNewData():
+    df = main()
+    df_to_dict = json.loads(df.to_json(orient="table", index=False))["data"]
+
+    repo = AzureTableRepository()
+    for record in df_to_dict:
+        repo.add(Partition.latest_county_report, record)
+
+
+def updateRepoWithPopulation():
+    repo = AzureTableRepository("Test01")
+    df = api.get_current_county_data()
+    df = df.rename(
+        {"countyFips": "fips", "County Name": "county_name", "State": "state"}
+    )
+    df_to_dict = json.loads(df.to_json(orient="table", index=False))["data"]
+    for y in df_to_dict:
+        repo.add(Partition.counties, y)
+    breakpoint()
 
 
 if __name__ == "__main__":
-    main()
+    updateRepoWithNewData()

@@ -8,6 +8,7 @@ import pandas
 import requests
 
 from cavoider_api_backend import conf
+from repository import AzureTableRepository, Partition
 
 CACHE_PATH = Path("../res/cache/")
 
@@ -62,10 +63,6 @@ def get_current_state_data():
 
 
 if __name__ == "__main__":
-    get_nyt_current_data()  # CSV
-    get_excess_deaths_from_cdc()  # JSON
-    get_nyt_historical_data()
-    get_current_county_data()
-    get_current_state_data()
+
     # with Path("../out/nytHistorical.xlsx").open("wb") as f:
     #    df.to_excel(f)
