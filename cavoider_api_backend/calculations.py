@@ -43,7 +43,7 @@ def create_cases_per_100k_people(current_data: DataFrame, population: DataFrame)
     )
 
 
-# Calculate case fatality per 100000 people
+# Calculate case fatality
 def create_case_fatality_rate(current_data: DataFrame):
     case_fatality = current_data["deaths"] / current_data["cases"]
     fips_and_covid_data = {"fips": current_data["fips"], "case_fatality": case_fatality}
@@ -83,13 +83,17 @@ def create_daily_dif_between_columns(
 # Calculate number of new cases per day
 # (uses yesterday and the day before that to find increase due to delay reporting times)
 def create_daily_case_count(historical_data: DataFrame, current_data: DataFrame):
-    return create_daily_dif_between_columns("cases", historical_data, current_data)
+    df_daily_cases = create_daily_dif_between_columns("cases", historical_data, current_data)
+    df_daily_cases.loc[df_daily_cases.new_daily_cases < 0, ["new_daily_cases"]] = 0
+    return df_daily_cases[["fips", "new_daily_cases"]]
 
 
 # Calculate number of new deaths per day
 # (uses yesterday and the day before that to find increase due to delay reporting times)
 def create_daily_death_count(historical_data: DataFrame, current_data: DataFrame):
-    return create_daily_dif_between_columns("deaths", historical_data, current_data)
+    df_daily_deaths = create_daily_dif_between_columns("deaths", historical_data, current_data)
+    df_daily_deaths.loc[df_daily_deaths.new_daily_deaths < 0, ["new_daily_deaths"]] = 0
+    return df_daily_deaths[["fips", "new_daily_deaths"]]
 
 
 # Calculate difference between week
@@ -130,6 +134,7 @@ def create_14_day_case_trend(historical_data: DataFrame, current_data: DataFrame
 
     # calculate the percent increase
     df_both_weeks = df_14_days.merge(df_week_2, on="fips")
+    df_both_weeks = df_both_weeks.dropna(subset=["fips"])
     df_both_weeks["week 1"] = df_both_weeks["14 days"] - df_both_weeks["week 2"]
     df_both_weeks["percent_change_14_days"] = (
         (df_both_weeks["week 2"] - df_both_weeks["week 1"])
@@ -140,6 +145,16 @@ def create_14_day_case_trend(historical_data: DataFrame, current_data: DataFrame
     df_both_weeks["percent_change_14_days"] = df_both_weeks[
         "percent_change_14_days"
     ].replace([numpy.inf], "na")
+
+    # find which counties were first added to the dataset within the last 14 days and set their 14 day value to na
+    all_fips = historical_data.drop_duplicates(subset=["fips"])
+    all_fips = all_fips.dropna(subset=["fips"])
+    missing_counties = all_fips.merge(df_both_weeks, how="left", on="fips", indicator=True)
+    missing_counties = missing_counties[missing_counties["_merge"] == "left_only"]
+    missing_counties = missing_counties.replace(numpy.nan, "na")
+    missing_counties = missing_counties[["fips", "week 1", "week 2", "percent_change_14_days"]]
+    df_both_weeks = df_both_weeks.append(missing_counties)
+
 
     return df_both_weeks[["fips", "percent_change_14_days"]]
 
@@ -155,6 +170,7 @@ def create_active_cases_estimate(historical_data: DataFrame, current_data: DataF
         "deaths", historical_data, current_data, 30
     )
     df_30_day_change = df_30_day_cases.merge(df_30_day_deaths, on="fips")
+    df_30_day_change = df_30_day_change.dropna(subset=["fips"])
 
     # calculate active cases
     df_30_day_change["active_cases_est"] = (
@@ -162,7 +178,27 @@ def create_active_cases_estimate(historical_data: DataFrame, current_data: DataF
         - df_30_day_change["new_difference_deaths"]
     )
 
+    # find which counties were first added to the dataset within the last 30 days
+    # and set the value to the number of cases - deaths since all cases and deaths were reported within the last 30 days
+    all_fips = historical_data.drop_duplicates(subset=["fips"])
+    all_fips = all_fips.dropna(subset=["fips"])
+    missing_counties = all_fips.merge(df_30_day_change, how="left", on="fips", indicator=True)
+    missing_counties = missing_counties[missing_counties["_merge"] == "left_only"]
+    missing_counties["active_cases_est"] = missing_counties["cases"] - missing_counties["deaths"]
+    missing_counties = missing_counties.replace(numpy.nan, "na")
+    missing_counties = missing_counties[["fips", "new_difference_cases", "new_difference_deaths", "active_cases_est"]]
+    df_30_day_change = df_30_day_change.append(missing_counties)
+
     return df_30_day_change[["fips", "active_cases_est"]]
+
+
+# Modify a specified row and cell in the data table to account for reporting differences
+def modify_datatable(current_data: DataFrame, column_name: str, fips: int, county_name: str, num_counties: int):
+    selected_row = current_data[current_data["county"] == f"{county_name}"]
+    selected_row_covid_data = int(selected_row[f"{column_name}"] / num_counties)
+    row_to_change_covid_data = int(current_data[current_data["fips"] == fips][f"{column_name}"])
+    new_data = selected_row_covid_data + row_to_change_covid_data
+    current_data.loc[current_data.fips == fips, [f"{column_name}"]] = new_data
 
 
 def main():
@@ -170,6 +206,52 @@ def main():
     df_NYT_current = api.get_nyt_current_data()
     df_NYT_historical = api.get_nyt_historical_data()
     df_county_pop = api.get_current_county_data()
+    df_county_pop = df_county_pop.rename(columns={"County Name": "county"})
+
+    # modify data
+    # replace NYC with a preselected fips code since one is not given
+    df_NYT_current.loc[df_NYT_current.county == "New York City", ["fips"]] = 112090
+    df_NYT_historical.loc[df_NYT_historical.county == "New York City", ["fips"]] = 112090
+    # calculate population for NYC
+    nycCounties = [36047, 36061, 36081, 36005, 36085]
+    nyc_pop_per_county = df_county_pop.loc[df_county_pop["countyFIPS"].isin(nycCounties)][["countyFIPS", "population"]]
+    nyc_pop = nyc_pop_per_county["population"].sum()
+    df_county_pop.loc[df_county_pop.county == "New York City Unallocated", ["countyFIPS"]] = 112090
+    df_county_pop.loc[df_county_pop.county == "New York City Unallocated", ["population"]] = nyc_pop
+
+    # add the joplin data to the other counties
+    # jasper county
+    modify_datatable(df_NYT_current, "cases", 29097, "Joplin", 2)
+    modify_datatable(df_NYT_current, "deaths", 29097, "Joplin", 2)
+    modify_datatable(df_NYT_current, "confirmed_cases", 29097, "Joplin", 2)
+    modify_datatable(df_NYT_current, "confirmed_deaths", 29097, "Joplin", 2)
+    # newton county
+    modify_datatable(df_NYT_current, "cases", 29145, "Joplin", 2)
+    modify_datatable(df_NYT_current, "deaths", 29145, "Joplin", 2)
+    modify_datatable(df_NYT_current, "confirmed_cases", 29145, "Joplin", 2)
+    modify_datatable(df_NYT_current, "confirmed_deaths", 29145, "Joplin", 2)
+
+    # add the kansas city data to the other counties
+    # cass county
+    modify_datatable(df_NYT_current, "cases", 29037, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "deaths", 29037, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_cases", 29037, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_deaths", 29037, "Kansas City", 4)
+    # clay county
+    modify_datatable(df_NYT_current, "cases", 29047, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "deaths", 29047, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_cases", 29047, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_deaths", 29047, "Kansas City", 4)
+    # jackson county
+    modify_datatable(df_NYT_current, "cases", 29095, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "deaths", 29095, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_cases", 29095, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_deaths", 29095, "Kansas City", 4)
+    # platte county
+    modify_datatable(df_NYT_current, "cases", 29165, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "deaths", 29165, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_cases", 29165, "Kansas City", 4)
+    modify_datatable(df_NYT_current, "confirmed_deaths", 29165, "Kansas City", 4)
 
     # Calculate all the statistics
     cases_per_100k_people = create_cases_per_100k_people(df_NYT_current, df_county_pop)
