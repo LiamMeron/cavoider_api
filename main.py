@@ -11,6 +11,12 @@ async def main():
 
 
 @app.get("/latest/{fips}")
+async def read_latest_report_for(fips: str):
+    data = repo.get(partition=Partition.latest_county_report, row_key=f"{fips}")
+    return data
+
+
+@app.get("/latest/")
 async def read_latest_report_for(q: str = Query(None)):
     response = []
     for item in q:
