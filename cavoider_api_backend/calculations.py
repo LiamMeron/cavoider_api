@@ -100,23 +100,25 @@ def create_diff_between_columns(column_name: str, historical_data: DataFrame,
 
 
 # Calculate 14 day trend
-def create_14_day_case_trend(historical_data: DataFrame, current_data: DataFrame):
+def create_two_week_rolling_avg(historical_data: DataFrame, current_data: DataFrame, population: DataFrame):
     # calculate week one
     df_week_2 = create_diff_between_columns("cases", historical_data, current_data, 7)
-    df_week_2 = df_week_2.rename(columns={"new_difference_cases": "week 2"})
+    df_week_2 = df_week_2.rename(columns={"new_difference_cases": "week_2"})
 
     # calculate week two
     df_14_days = create_diff_between_columns("cases", historical_data, current_data, 14)
-    df_14_days = df_14_days.rename(columns={"new_difference_cases": "14 days"})
+    df_14_days = df_14_days.rename(columns={"new_difference_cases": "14_days"})
 
-    # calculate the percent increase
+    # calculate the the average per 100000 people
     df_both_weeks = df_14_days.merge(df_week_2, on="fips")
     df_both_weeks = df_both_weeks.dropna(subset=["fips"])
-    df_both_weeks["week 1"] = df_both_weeks["14 days"] - df_both_weeks["week 2"]
-    df_both_weeks["percent_change_14_days"] = ((df_both_weeks["week 2"] - df_both_weeks["week 1"]) / df_both_weeks["week 1"].abs()) * 100
-
-    # replace the any percent change which is equal to infinity
-    df_both_weeks["percent_change_14_days"] = df_both_weeks["percent_change_14_days"].replace([numpy.inf], "na")
+    df_both_weeks["week_1"] = df_both_weeks["14_days"] - df_both_weeks["week_2"]
+    df_both_weeks["week_2_rolling_avg"] = df_both_weeks["week_2"] / 7
+    df_both_weeks["week_1_rolling_avg"] = df_both_weeks["week_1"] / 7
+    df_week_2_pop = create_covid_data_by_population(df_both_weeks, population, "week_2_rolling_avg")
+    df_week_1_pop = create_covid_data_by_population(df_both_weeks, population, "week_1_rolling_avg")
+    df_both_weeks = df_both_weeks.merge(df_week_2_pop, on="fips")
+    df_both_weeks = df_both_weeks.merge(df_week_1_pop, on="fips")
 
     # find which counties were first added to the dataset within the last 14 days and set their 14 day value to na
     all_fips = historical_data.drop_duplicates(subset=["fips"])
@@ -124,11 +126,10 @@ def create_14_day_case_trend(historical_data: DataFrame, current_data: DataFrame
     missing_counties = all_fips.merge(df_both_weeks, how="left", on="fips", indicator=True)
     missing_counties = missing_counties[missing_counties["_merge"] == "left_only"]
     missing_counties = missing_counties.replace(numpy.nan, "na")
-    missing_counties = missing_counties[["fips", "week 1", "week 2", "percent_change_14_days"]]
+    missing_counties = missing_counties[["fips", "week_1_rolling_avg_per_100k_people", "week_2_rolling_avg_per_100k_people"]]
     df_both_weeks = df_both_weeks.append(missing_counties)
 
-
-    return df_both_weeks[["fips", "percent_change_14_days"]]
+    return df_both_weeks[["fips", "week_1_rolling_avg_per_100k_people", "week_2_rolling_avg_per_100k_people"]]
 
 
 # Calculate active cases: number of new cases - new deaths within 30 days
@@ -225,7 +226,7 @@ def main():
     daily_case_change = create_daily_case_count(df_NYT_historical, df_NYT_current)
     daily_death_change = create_daily_death_count(df_NYT_historical, df_NYT_current)
     case_fatality_rate = create_case_fatality_rate(df_NYT_current)
-    case_trend_14_days = create_14_day_case_trend(df_NYT_historical, df_NYT_current)
+    case_trend_14_days = create_two_week_rolling_avg(df_NYT_historical, df_NYT_current, df_county_pop)
     active_cases_est = create_active_cases_estimate(df_NYT_historical, df_NYT_current)
 
     # Create a master data table with all relevant statistics
@@ -243,7 +244,7 @@ def main():
     df_master["fips"] = df_master["fips"].astype(int)
 
     # print all columns in data frame
-    #pandas.set_option("max_columns", None)
+    pandas.set_option("max_columns", None)
     print(df_master)
 
     #return df_master
