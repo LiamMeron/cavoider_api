@@ -9,6 +9,7 @@ attrs==20.2.0             # via pytest
 azure-common==1.1.25      # via azure-cosmosdb-table
 azure-cosmosdb-nspkg==2.0.2  # via azure-cosmosdb-table
 azure-cosmosdb-table==1.0.6  # via -r requirements.in
+azure-functions==1.4.0    # via -r requirements.in
 azure-nspkg==3.0.2        # via azure-cosmosdb-nspkg
 certifi==2020.6.20        # via requests
 cffi==1.14.2              # via cryptography
@@ -23,6 +24,7 @@ h11==0.9.0                # via uvicorn
 idna==2.10                # via requests
 iniconfig==1.0.1          # via pytest
 jdcal==1.4.1              # via openpyxl
+lxml==4.5.2               # via pykml
 marshmallow==3.7.1        # via environs
 more-itertools==8.5.0     # via pytest
 numpy==1.19.1             # via pandas
@@ -33,6 +35,7 @@ pluggy==0.13.1            # via pytest
 py==1.9.0                 # via pytest
 pycparser==2.20           # via cffi
 pydantic==1.6.1           # via fastapi
+pykml==0.2.0              # via -r requirements.in
 pyparsing==2.4.7          # via packaging
 pytest==6.0.2             # via -r requirements.in
 python-dateutil==2.8.1    # via azure-cosmosdb-table, pandas
