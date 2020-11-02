@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from cavoider_api_backend.repository import AzureTableRepository, Partition
 
 app = FastAPI()
@@ -16,7 +16,7 @@ async def read_latest_report_for(fips: str):
     return data
 
 
-@app.get("/counties/outline/{fips}")
+@app.get("/county/{fips}")
 async def get_county_outline_for(fips: str):
     data = repo.get(partition=Partition.counties, row_key=fips)
     return {"fips": data["RowKey"], "outline": data["outline"]}

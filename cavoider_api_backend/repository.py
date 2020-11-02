@@ -132,6 +132,9 @@ class AzureTableRepository(AbstractRepository):
         self.table_svc.insert_or_merge_entity(self.table_name, data)
 
     def get(self, partition: Partition, row_key: str, default_val=None):
+        nycCounties = [36047, 36061, 36081, 36005, 36085]
+        if (row_key) in nycCounties:
+            row_key = 112090
         try:
             return self.table_svc.get_entity(
                 self.table_name, partition_key=partition.value, row_key=row_key
@@ -154,9 +157,7 @@ def is_valid_county_report(data: dict) -> bool:
 
 if __name__ == "__main__":
     report = {"fips": "001", "report_date": "2020-09-20", "score": "bad"}
-    repository = AzureTableRepository("Test01")
+    repository = AzureTableRepository()
     counties = get_county_outlines_from_file_on_disk()
     for fips, outline in counties.items():
-        repository.add(
-            Partition.counties, {"fips": fips, "outline": json.dumps(outline)}
-        )
+        repository.add(Partition.counties, {"fips": fips, "outline": outline.__str__()})

@@ -27,14 +27,12 @@ def extract_county_outlines_from_kml(file: Path):
             coordinates = str(
                 placemark.Polygon.outerBoundaryIs.LinearRing.coordinates
             ).split(" ")
-            coordinates = [
-                [{"lat": x.split(",")[0], "lon": x.split(",")[1]} for x in coordinates]
-            ]
+            coordinates = [[(x.split(",")[0], x.split(",")[1]) for x in coordinates]]
         except AttributeError:
             polygons = placemark.MultiGeometry.Polygon
             coordinates = [
                 [
-                    {"lat": x.split(",")[0], "lon": x.split(",")[1]}
+                    (x.split(",")[0], x.split(",")[1])
                     for x in str(polygon.outerBoundaryIs.LinearRing.coordinates).split(
                         " "
                     )
