@@ -10,7 +10,7 @@ import numpy
 
 
 # Calculate covid data per 100000 people
-from repository import AzureTableRepository, Partition
+from .repository import AzureTableRepository, Partition
 
 
 def create_covid_data_by_population(
@@ -311,7 +311,7 @@ def main():
     return df_master
 
 
-def updateRepoWithNewData():
+def update_repo_with_new_data():
     df = main()
     df_to_dict = json.loads(df.to_json(orient="table", index=False))["data"]
 
@@ -320,7 +320,8 @@ def updateRepoWithNewData():
         repo.add(Partition.latest_county_report, record)
 
 
-def updateRepoWithPopulation():
+#Is this method used anywhere
+def update_repo_with_population():
     repo = AzureTableRepository("Test01")
     df = api.get_current_county_data()
     df = df.rename(
@@ -332,4 +333,4 @@ def updateRepoWithPopulation():
 
 
 if __name__ == "__main__":
-    updateRepoWithNewData()
+    update_repo_with_new_data()
