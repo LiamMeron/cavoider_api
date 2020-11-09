@@ -12,6 +12,6 @@ def main(mytimer: func.TimerRequest) -> None:
     utc_timestamp = (
         datetime.datetime.utcnow().replace(tzinfo=datetime.timezone.utc).isoformat()
     )
-    calc.updateRepoWithNewData()
+    calc.update_repo_with_new_data()
 
     logging.info("Python timer trigger function ran at %s", utc_timestamp)

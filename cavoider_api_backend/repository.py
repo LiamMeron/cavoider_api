@@ -155,9 +155,14 @@ def is_valid_county_report(data: dict) -> bool:
         return False
 
 
-if __name__ == "__main__":
+def populate_repository():
+    global counties
     report = {"fips": "001", "report_date": "2020-09-20", "score": "bad"}
     repository = AzureTableRepository()
     counties = get_county_outlines_from_file_on_disk()
-    for fips, outline in counties.items():
-        repository.add(Partition.counties, {"fips": fips, "outline": outline.__str__()})
+    for fips in counties.items():
+        repository.add(Partition.counties, {"fips": fips})
+
+
+if __name__ == "__main__":
+    populate_repository()

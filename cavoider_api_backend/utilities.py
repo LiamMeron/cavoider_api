@@ -22,7 +22,6 @@ def extract_county_outlines_from_kml(file: Path):
     masterlist = {}
     for placemark in root.Document.Folder.Placemark:
         fips = placemark.ExtendedData.SchemaData.SimpleData[4].text
-
         try:
             coordinates = str(
                 placemark.Polygon.outerBoundaryIs.LinearRing.coordinates

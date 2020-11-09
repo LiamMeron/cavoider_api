@@ -8,36 +8,42 @@ import pandas
 import requests
 
 from cavoider_api_backend import conf
+from .repository import AzureTableRepository, Partition
 
 CACHE_PATH = Path("../res/cache/")
 
 
 def get_data_from_endpoint(endpoint, is_current):
     today = datetime.now().date().isoformat()
-    if is_current:
-        data_date = "current"
-    else:
-        data_date = "historical"
+    data_date = get_data_date(is_current)
     filename = f"{today}_{data_date}_{os.path.basename(urlparse(endpoint).path)}"
     file_extension = filename.split(".")[-1]
     file_cache_path = Path(CACHE_PATH) / filename
     if file_cache_path.exists():
-        if file_extension == "json":
-            df = pandas.read_json(file_cache_path)
-        elif file_extension == "csv":
-            df = pandas.read_csv(file_cache_path)
-        else:
-            raise ValueError(f"File Extension: {file_extension}")
-        return df
+        return get_dataframe(file_cache_path, file_extension)
     else:
-        write_to_file(endpoint, file_cache_path)
+        with open(file_cache_path, mode="wb") as f:
+            response = requests.get(endpoint)
+            f.write(response.content)
         return get_data_from_endpoint(endpoint, data_date)
 
 
-def write_to_file(endpoint, file_cache_path):
-    with open(file_cache_path, mode="wb") as f:
-        response = requests.get(endpoint)
-        f.write(response.content)
+def get_data_date(is_current):
+    if is_current:
+        data_date = "current"
+    else:
+        data_date = "historical"
+    return data_date
+
+
+def get_dataframe(file_cache_path, file_extension):
+    if file_extension == "json":
+        df = pandas.read_json(file_cache_path)
+    elif file_extension == "csv":
+        df = pandas.read_csv(file_cache_path)
+    else:
+        raise ValueError(f"File Extension: {file_extension}")
+    return df
 
 
 def get_excess_deaths_from_cdc():
