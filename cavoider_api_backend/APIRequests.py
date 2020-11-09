@@ -8,7 +8,6 @@ import pandas
 import requests
 
 from cavoider_api_backend import conf
-from repository import AzureTableRepository, Partition
 
 CACHE_PATH = Path("../res/cache/")
 
@@ -31,10 +30,14 @@ def get_data_from_endpoint(endpoint, is_current):
             raise ValueError(f"File Extension: {file_extension}")
         return df
     else:
-        with open(file_cache_path, mode="wb") as f:
-            response = requests.get(endpoint)
-            f.write(response.content)
+        write_to_file(endpoint, file_cache_path)
         return get_data_from_endpoint(endpoint, data_date)
+
+
+def write_to_file(endpoint, file_cache_path):
+    with open(file_cache_path, mode="wb") as f:
+        response = requests.get(endpoint)
+        f.write(response.content)
 
 
 def get_excess_deaths_from_cdc():
