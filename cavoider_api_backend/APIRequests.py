@@ -22,10 +22,14 @@ def get_data_from_endpoint(endpoint, is_current):
     if file_cache_path.exists():
         return get_dataframe(file_cache_path, file_extension)
     else:
-        with open(file_cache_path, mode="wb") as f:
-            response = requests.get(endpoint)
-            f.write(response.content)
+        write_to_file(endpoint, file_cache_path)
         return get_data_from_endpoint(endpoint, data_date)
+
+
+def write_to_file(endpoint, file_cache_path):
+    with open(file_cache_path, mode="wb") as f:
+        response = requests.get(endpoint)
+        f.write(response.content)
 
 
 def get_data_date(is_current):

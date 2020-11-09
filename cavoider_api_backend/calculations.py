@@ -185,30 +185,36 @@ def create_active_cases_estimate(historical_data: DataFrame, current_data: DataF
     df_30_day_change = df_30_day_cases.merge(df_30_day_deaths, on="fips")
     df_30_day_change = df_30_day_change.dropna(subset=["fips"])
 
+    # calculate active cases
+
     calculate_active_cases(df_30_day_change)
 
     # find which counties were first added to the dataset within the last 30 days
     # and set the value to the number of cases - deaths since all cases and deaths were reported within the last 30 days
     all_fips = historical_data.drop_duplicates(subset=["fips"])
     all_fips = all_fips.dropna(subset=["fips"])
-    missing_counties = all_fips.merge(
-        df_30_day_change, how="left", on="fips", indicator=True
-    )
-    missing_counties = missing_counties[missing_counties["_merge"] == "left_only"]
-    missing_counties["active_cases_est"] = (
-        missing_counties["cases"] - missing_counties["deaths"]
-    )
-    missing_counties = missing_counties.replace(numpy.nan, "na")
-    missing_counties = missing_counties[
-        ["fips", "new_difference_cases", "new_difference_deaths", "active_cases_est"]
-    ]
+    missing_counties = find_missing_counties(all_fips, df_30_day_change)
     df_30_day_change = df_30_day_change.append(missing_counties)
 
     return df_30_day_change[["fips", "active_cases_est"]]
 
 
+def find_missing_counties(all_fips, df_30_day_change):
+    missing_counties = all_fips.merge(
+        df_30_day_change, how="left", on="fips", indicator=True
+    )
+    missing_counties = missing_counties[missing_counties["_merge"] == "left_only"]
+    missing_counties["active_cases_est"] = (
+            missing_counties["cases"] - missing_counties["deaths"]
+    )
+    missing_counties = missing_counties.replace(numpy.nan, "na")
+    missing_counties = missing_counties[
+        ["fips", "new_difference_cases", "new_difference_deaths", "active_cases_est"]
+    ]
+    return missing_counties
+
+
 def calculate_active_cases(df_30_day_change):
-    # calculate active cases
     df_30_day_change["active_cases_est"] = (
             df_30_day_change["new_difference_cases"]
             - df_30_day_change["new_difference_deaths"]
@@ -232,46 +238,6 @@ def modify_datatable(
     current_data.loc[current_data.fips == fips, [f"{column_name}"]] = new_data
 
 
-def main():
-    # pull in data
-    df_NYT_current = api.get_nyt_current_data()
-    df_NYT_historical = api.get_nyt_historical_data()
-    df_county_pop = api.get_current_county_data()
-    df_county_pop = df_county_pop.rename(columns={"County Name": "county"})
-
-    # modify data
-    # replace NYC with a preselected fips code since one is not given
-    df_NYT_current.loc[df_NYT_current.county == "New York City", ["fips"]] = 112090
-    df_NYT_historical.loc[
-        df_NYT_historical.county == "New York City", ["fips"]
-    ] = 112090
-    calculate_nyc_population(df_NYT_current, df_county_pop)
-
-    # Calculate all the statistics
-    cases_per_100k_people = create_cases_per_100k_people(df_NYT_current, df_county_pop)
-    deaths_per_100k_people = create_deaths_per_100k_people(
-        df_NYT_current, df_county_pop
-    )
-    daily_case_change = create_daily_case_count(df_NYT_historical, df_NYT_current)
-    daily_death_change = create_daily_death_count(df_NYT_historical, df_NYT_current)
-    case_fatality_rate = create_case_fatality_rate(df_NYT_current)
-    case_trend_14_days = create_two_week_rolling_avg(df_NYT_historical, df_NYT_current, df_county_pop)
-    active_cases_est = create_active_cases_estimate(df_NYT_historical, df_NYT_current)
-
-    df_master = create_master_dataframe(active_cases_est, case_fatality_rate, case_trend_14_days, cases_per_100k_people,
-                                        daily_case_change, daily_death_change, deaths_per_100k_people, df_NYT_current)
-
-    # reformat data frame
-    df_master = df_master.rename(columns={"date": "report_date"})
-    df_master["fips"] = df_master["fips"].astype(int)
-    df_master["fips"] = df_master["fips"].apply("{0:0>05}".format)
-
-    # print all columns in data frame
-    pandas.set_option("max_columns", None)
-    print(df_master)
-    return df_master
-
-
 def create_master_dataframe(active_cases_est, case_fatality_rate, case_trend_14_days, cases_per_100k_people,
                             daily_case_change, daily_death_change, deaths_per_100k_people, df_NYT_current):
     # Create a master data table with all relevant statistics
@@ -285,6 +251,11 @@ def create_master_dataframe(active_cases_est, case_fatality_rate, case_trend_14_
     df_master = df_master.merge(case_fatality_rate, on="fips")
     df_master = df_master.merge(case_trend_14_days, on="fips")
     df_master = df_master.merge(active_cases_est, on="fips")
+    # reformat data frame
+    df_master = df_master.rename(columns={"date": "report_date"})
+    df_master["fips"] = df_master["fips"].astype(int)
+    df_master["fips"] = df_master["fips"].apply("{0:0>05}".format)
+
     return df_master
 
 
@@ -301,8 +272,6 @@ def calculate_nyc_population(df_NYT_current, df_county_pop):
     df_county_pop.loc[
         df_county_pop.county == "New York City Unallocated", ["population"]
     ] = nyc_pop
-    add_joplin_data(df_NYT_current)
-    add_kansas_city_data(df_NYT_current)
 
 
 def add_kansas_city_data(df_NYT_current):
@@ -352,7 +321,7 @@ def update_repo_with_new_data():
         repo.add(Partition.latest_county_report, record)
 
 
-#Is this method used anywhere
+#Is this method used anywhere cant find usages
 def update_repo_with_population():
     repo = AzureTableRepository("Test01")
     df = api.get_current_county_data()
@@ -362,6 +331,44 @@ def update_repo_with_population():
     df_to_dict = json.loads(df.to_json(orient="table", index=False))["data"]
     for y in df_to_dict:
         repo.add(Partition.counties, y)
+
+
+def main():
+    # pull in data
+    df_NYT_current = api.get_nyt_current_data()
+    df_NYT_historical = api.get_nyt_historical_data()
+    df_county_pop = api.get_current_county_data()
+    df_county_pop = df_county_pop.rename(columns={"County Name": "county"})
+
+    # modify data
+    # replace NYC with a preselected fips code since one is not given
+    df_NYT_current.loc[df_NYT_current.county == "New York City", ["fips"]] = 112090
+    df_NYT_historical.loc[
+        df_NYT_historical.county == "New York City", ["fips"]
+    ] = 112090
+    calculate_nyc_population(df_NYT_current, df_county_pop)
+
+    add_joplin_data(df_NYT_current)
+    add_kansas_city_data(df_NYT_current)
+
+    # Calculate all the statistics
+    cases_per_100k_people = create_cases_per_100k_people(df_NYT_current, df_county_pop)
+    deaths_per_100k_people = create_deaths_per_100k_people(
+        df_NYT_current, df_county_pop
+    )
+    daily_case_change = create_daily_case_count(df_NYT_historical, df_NYT_current)
+    daily_death_change = create_daily_death_count(df_NYT_historical, df_NYT_current)
+    case_fatality_rate = create_case_fatality_rate(df_NYT_current)
+    case_trend_14_days = create_two_week_rolling_avg(df_NYT_historical, df_NYT_current, df_county_pop)
+    active_cases_est = create_active_cases_estimate(df_NYT_historical, df_NYT_current)
+
+    df_master = create_master_dataframe(active_cases_est, case_fatality_rate, case_trend_14_days, cases_per_100k_people,
+                                        daily_case_change, daily_death_change, deaths_per_100k_people, df_NYT_current)
+
+    # print all columns in data frame
+    pandas.set_option("max_columns", None)
+    print(df_master)
+    return df_master
 
 
 if __name__ == "__main__":
