@@ -6,13 +6,10 @@ import pandas
 import numpy
 
 
-# from cavoider_api_backend.repository import Partition, AzureTableRepository
+from cavoider_api_backend.repository import Partition, AzureTableRepository
 
 
 # Calculate covid data per 100000 people
-from repository import AzureTableRepository, Partition
-
-
 def create_covid_data_by_population(
     covid_data: DataFrame, population: DataFrame, column_name: str
 ):
@@ -126,7 +123,7 @@ def create_diff_between_columns(
     return df_difference[["fips", f"new_difference_{column_name}"]]
 
 
-# Calculate 14 day trend
+# Calculate rolling average for each of the last two weeks
 def create_two_week_rolling_avg(historical_data: DataFrame, current_data: DataFrame, population: DataFrame):
     # calculate week one
     df_week_2 = create_diff_between_columns("cases", historical_data, current_data, 7)
@@ -159,6 +156,62 @@ def create_two_week_rolling_avg(historical_data: DataFrame, current_data: DataFr
     df_both_weeks = df_both_weeks.append(missing_counties)
 
     return df_both_weeks[["fips", "week_1_rolling_avg_per_100k_people", "week_2_rolling_avg_per_100k_people"]]
+
+
+# Calculate difference between week
+def create_diff_between_columns_for_state(
+    column_name: str,
+    historical_data: DataFrame,
+    num_days_elapsed: int,
+):
+    today = historical_data.iloc[0, 0]
+    today_datetime_format = datetime.fromisoformat(today)
+    elapsed_days = str(today_datetime_format - timedelta(days=num_days_elapsed)).split(" ")
+    elapsed_days = elapsed_days[0]
+
+    # calculate difference
+    df_today = historical_data[historical_data["date"] == today]
+    df_today = df_today[["state", f"{column_name}"]]
+    df_elapsed = historical_data[historical_data["date"] == elapsed_days]
+    df_elapsed = df_elapsed[["state", f"{column_name}"]]
+    df_elapsed = df_elapsed.rename(columns={f"{column_name}": f"prev_{column_name}"})
+
+    df_difference = df_today.merge(df_elapsed, on="state")
+
+    df_difference[f"new_difference_{column_name}"] = (
+        df_difference[f"{column_name}"] - df_difference[f"prev_{column_name}"]
+    )
+    return df_difference[["state", f"new_difference_{column_name}"]]
+
+
+def create_state_population(county_population: DataFrame):
+    states_list = county_population["State"].unique()
+    state_pop_list = []
+    for state in states_list:
+        df_current_state = county_population[county_population["State"] == state]
+        state_sum = df_current_state["population"].sum()
+        state_pop_list.append(state_sum)
+    states_and_population = {"state": states_list, "population": state_pop_list}
+    df_state_population = pandas.DataFrame(states_and_population)
+
+    return df_state_population
+
+
+# Calculate rolling average for each of the last week for the state
+def create_two_week_rolling_avg_for_state(historical_data: DataFrame, population: DataFrame):
+    # calculate new cases increase
+    df_week_2 = create_diff_between_columns_for_state("positive", historical_data, 7)
+    df_week_2 = df_week_2.rename(columns={"new_difference_positive": "week_2"})
+
+    # calculate the the average per 100000 people
+    df_week_2["week_2_rolling_avg"] = df_week_2["week_2"] / 7
+    df_state_pop = create_state_population(population)
+    df_covid_data_and_pop = df_week_2.merge(df_state_pop, on="state")
+    df_covid_data_and_pop = df_covid_data_and_pop.rename(columns={"state": "state_abbreviation"})
+    df_covid_data_and_pop["state_week_2_rolling_avg_per_100k_people"] = (
+            df_covid_data_and_pop["week_2_rolling_avg"] / df_covid_data_and_pop["population"]) * 100000
+
+    return df_covid_data_and_pop[["state_abbreviation", "state_week_2_rolling_avg_per_100k_people"]]
 
 
 # Calculate active cases: number of new cases - new deaths within 30 days
@@ -217,13 +270,38 @@ def modify_datatable(
     current_data.loc[current_data.fips == fips, [f"{column_name}"]] = new_data
 
 
+def create_table_with_state_and_abbreviation():
+    state_names = ['Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California', 'Colorado', 'Connecticut', 'Delaware',
+                   'District of Columbia', 'Florida', 'Georgia', 'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
+                   'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland', 'Massachusetts', 'Michigan', 'Minnesota',
+                   'Mississippi', 'Missouri', 'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
+                   'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio', 'Oklahoma', 'Oregon',
+                   'Pennsylvania', 'Rhode Island', 'South Carolina', 'South Dakota', 'Tennessee', 'Texas', 'Utah',
+                   'Vermont', 'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming']
+    state_abbreviation = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL", "IN", "IA",
+                           "KS", "KY", "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+                           "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT",
+                           "VA", "WA", "WV", "WI", "WY"]
+    state_and_abbreviation = {"state": state_names, "state_abbreviation": state_abbreviation}
+    df_state_and_abbreviation = DataFrame(state_and_abbreviation)
+    return df_state_and_abbreviation
+
+
 def main():
     # pull in data
     df_NYT_current = api.get_nyt_current_data()
     df_NYT_historical = api.get_nyt_historical_data()
     df_county_pop = api.get_current_county_data()
+    df_state_data = api.get_current_state_data()
     df_county_pop = df_county_pop.rename(columns={"County Name": "county"})
 
+    # create a table which maps state to state abbreviation
+    df_state_and_abbreviation = create_table_with_state_and_abbreviation()
+
+    # calculate state statistics
+    df_state_7_day_rolling_avg = create_two_week_rolling_avg_for_state(df_state_data, df_county_pop)
+
+    # calculate county statistics
     # modify data
     # replace NYC with a preselected fips code since one is not given
     df_NYT_current.loc[df_NYT_current.county == "New York City", ["fips"]] = 112090
@@ -279,9 +357,7 @@ def main():
 
     # Calculate all the statistics
     cases_per_100k_people = create_cases_per_100k_people(df_NYT_current, df_county_pop)
-    deaths_per_100k_people = create_deaths_per_100k_people(
-        df_NYT_current, df_county_pop
-    )
+    deaths_per_100k_people = create_deaths_per_100k_people(df_NYT_current, df_county_pop)
     daily_case_change = create_daily_case_count(df_NYT_historical, df_NYT_current)
     daily_death_change = create_daily_death_count(df_NYT_historical, df_NYT_current)
     case_fatality_rate = create_case_fatality_rate(df_NYT_current)
@@ -292,13 +368,17 @@ def main():
     df_current_data = df_NYT_current[
         ["date", "county", "state", "fips", "cases", "deaths"]
     ]
-    df_master = df_current_data.merge(cases_per_100k_people, on="fips")
+    df_master = df_current_data.merge(df_state_and_abbreviation, on="state")
+    df_master = df_master.merge(cases_per_100k_people, on="fips")
     df_master = df_master.merge(deaths_per_100k_people, on="fips")
     df_master = df_master.merge(daily_case_change, on="fips")
     df_master = df_master.merge(daily_death_change, on="fips")
     df_master = df_master.merge(case_fatality_rate, on="fips")
     df_master = df_master.merge(case_trend_14_days, on="fips")
     df_master = df_master.merge(active_cases_est, on="fips")
+
+    # add state data to the bottom of the table
+    df_master = df_master.merge(df_state_7_day_rolling_avg, on="state_abbreviation")
 
     # reformat data frame
     df_master = df_master.rename(columns={"date": "report_date"})
